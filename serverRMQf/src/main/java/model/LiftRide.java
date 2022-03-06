@@ -1,19 +1,19 @@
 package model;
 
-public class LiftEvent {
+public class LiftRide {
 
-    private int liftId;
+    private int liftID;
     private int time;
     private int waitTime;
 
-    public LiftEvent(int liftId, int time, int waitTime) {
-        this.liftId = liftId;
+    public LiftRide(int liftId, int time, int waitTime) {
+        this.liftID = liftId;
         this.time = time;
         this.waitTime = waitTime;
     }
 
     public int getLiftId() {
-        return liftId;
+        return liftID;
     }
 
     public int getTime() {
@@ -27,7 +27,7 @@ public class LiftEvent {
     @Override
     public String toString() {
         return "model.LiftEvent{" +
-                "liftId=" + liftId +
+                "liftId=" + liftID +
                 ", time=" + time +
                 ", waitTime=" + waitTime +
                 '}';

@@ -20,6 +20,7 @@ import java.util.regex.Pattern;
 public class ResortServlet extends HttpServlet {
     private Gson gson = new Gson();
 
+
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         processGetRequest(request, response);

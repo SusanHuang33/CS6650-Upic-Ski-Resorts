@@ -1,18 +1,40 @@
 package servlet;
 
 import com.google.gson.Gson;
-import model.LiftEvent;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import model.LiftRide;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
 import javax.servlet.annotation.*;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.concurrent.TimeoutException;
 
 @WebServlet(name = "servlet.SkierServlet", value = "/servlet.SkierServlet")
 public class SkierServlet extends HttpServlet {
     private final Gson gson  = new Gson();
+    private static final String QUEUE_NAME = "postLiftRideQ";
+    private static final String HOST_NAME = "localhost";
+    private static Connection conn;
+//    private static Gson gson ;
+
+    @Override
+    public void init() {
+//        gson = new Gson();
+        ConnectionFactory factory = new ConnectionFactory();
+        factory.setHost(HOST_NAME);
+        try {
+            conn = factory.newConnection();
+        } catch (IOException | TimeoutException e) {
+            e.printStackTrace();
+        }
+    }
+
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
@@ -106,11 +128,26 @@ public class SkierServlet extends HttpServlet {
 //            // TODO: process url params in `urlParts`
 //            response.getWriter().write("Posting skier data works!");
 
-            LiftEvent lift = gson.fromJson(request.getReader(), LiftEvent.class);
-            System.out.println("+++++++++++++++++++++++++++");
-            System.out.println(lift);
-            response.getWriter().write((gson.toJson(lift)));
-            response.setStatus(HttpServletResponse.SC_CREATED);
+//            LiftRide lift = gson.fromJson(request.getReader(), LiftRide.class);
+//            System.out.println("+++++++++++++++++++++++++++");
+//            System.out.println(lift);
+//            response.getWriter().write((gson.toJson(lift)));
+//            response.setStatus(HttpServletResponse.SC_CREATED);
+
+            try {
+                Channel channel = conn.createChannel();
+                channel.queueDeclare(QUEUE_NAME, false, false, false, null); //TODO: init
+                LiftRide lift = gson.fromJson(request.getReader(), LiftRide.class);
+
+                // message = "skierId,timestamp,liftId,waitTime"
+                String message = urlParts[7] + "," + lift.getTime() + "," + lift.getLiftId()+ "," + lift.getWaitTime();
+                channel.basicPublish("", QUEUE_NAME, null, message.getBytes(StandardCharsets.UTF_8));
+                channel.close();
+                response.getWriter().write((gson.toJson(lift)));
+                response.setStatus(HttpServletResponse.SC_CREATED);
+            } catch (IOException | TimeoutException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -177,6 +214,16 @@ public class SkierServlet extends HttpServlet {
             everything.append(line);
         }
         return everything.toString();
+    }
+
+    @Override
+    public void destroy() {
+        if (conn == null) { return;}
+        try {
+            conn.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 }
