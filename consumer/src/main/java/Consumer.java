@@ -14,7 +14,9 @@ import java.util.concurrent.CountDownLatch;
 public class Consumer {
 
     private static final String QUEUE_NAME = "postLiftRideQ";
-    private static final String HOST_NAME = "localhost";
+//    private static final String HOST_NAME = "localhost";
+    private static final String HOST_NAME = "54.69.74.33";
+    private static final int PORT = 5672;
     private static final int NUMTHREADS = 4;
 
     private static class LiftRide {
@@ -41,6 +43,10 @@ public class Consumer {
     public static void main(String[] argv) throws Exception {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(HOST_NAME);
+        factory.setUsername("admin");
+        factory.setPassword("password");
+        factory.setVirtualHost("/");
+        factory.setPort(PORT);
         final Connection connection = factory.newConnection();
         CountDownLatch completed = new CountDownLatch(NUMTHREADS);
         for (int i = 0; i < NUMTHREADS; i++) {
@@ -61,7 +67,7 @@ public class Consumer {
                         int waitTime = Integer.parseInt(tokens[3]);
                         map.putIfAbsent(skierId, new ArrayList<>());
                         map.get(skierId).add(new LiftRide(time, liftId, waitTime));
-//                        System.out.println(map);
+                        System.out.println(map);
                         channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
                     };
                     // process messages

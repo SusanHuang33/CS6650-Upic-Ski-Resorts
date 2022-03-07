@@ -19,7 +19,9 @@ import java.util.concurrent.TimeoutException;
 public class SkierServlet extends HttpServlet {
     private final Gson gson  = new Gson();
     private static final String QUEUE_NAME = "postLiftRideQ";
-    private static final String HOST_NAME = "localhost";
+//    private static final String HOST_NAME = "localhost";
+    private static final String HOST_NAME = "54.69.74.33";
+    private static final int PORT = 5672;
     private static Connection conn;
 //    private static Gson gson ;
 
@@ -28,6 +30,10 @@ public class SkierServlet extends HttpServlet {
 //        gson = new Gson();
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(HOST_NAME);
+        factory.setUsername("admin");
+        factory.setPassword("password");
+        factory.setVirtualHost("/");
+        factory.setPort(PORT);
         try {
             conn = factory.newConnection();
         } catch (IOException | TimeoutException e) {
@@ -140,7 +146,7 @@ public class SkierServlet extends HttpServlet {
                 LiftRide lift = gson.fromJson(request.getReader(), LiftRide.class);
 
                 // message = "skierId,timestamp,liftId,waitTime"
-                String message = urlParts[7] + "," + lift.getTime() + "," + lift.getLiftId()+ "," + lift.getWaitTime();
+                String message = urlParts[7] + "," + lift.getTime() + "," + lift.getLiftID()+ "," + lift.getWaitTime();
                 channel.basicPublish("", QUEUE_NAME, null, message.getBytes(StandardCharsets.UTF_8));
                 channel.close();
                 response.getWriter().write((gson.toJson(lift)));

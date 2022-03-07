@@ -6,13 +6,13 @@ public class LiftRide {
     private int time;
     private int waitTime;
 
-    public LiftRide(int liftId, int time, int waitTime) {
-        this.liftID = liftId;
+    public LiftRide(int liftID, int time, int waitTime) {
+        this.liftID = liftID;
         this.time = time;
         this.waitTime = waitTime;
     }
 
-    public int getLiftId() {
+    public int getLiftID() {
         return liftID;
     }
 
