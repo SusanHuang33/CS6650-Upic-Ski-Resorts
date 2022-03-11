@@ -25,6 +25,7 @@ public class SkierServlet extends HttpServlet {
     private static final String QUEUE_NAME = "postLiftRideQ";
 //    private static final String HOST_NAME = "localhost";
     private static final String HOST_NAME = "172.31.28.212";
+//    private static final String HOST_NAME = "35.85.215.241";
     private static final int PORT = 5672;
     private static Connection conn;
 
@@ -145,7 +146,7 @@ public class SkierServlet extends HttpServlet {
             try {
 //                Channel channel = conn.createChannel();
                 Channel channel = channelPool.borrowObject();
-                channel.queueDeclare(QUEUE_NAME, false, false, false, null); //TODO: init //TODO;delete
+                channel.queueDeclare(QUEUE_NAME, false, false, false, null);
                 LiftRide lift = gson.fromJson(request.getReader(), LiftRide.class);
 
                 // message = "skierId,timestamp,liftId,waitTime"
