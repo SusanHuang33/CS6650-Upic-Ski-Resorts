@@ -5,11 +5,15 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import model.LiftRide;
+import org.apache.commons.pool2.BasePooledObjectFactory;
+import org.apache.commons.pool2.ObjectPool;
+import org.apache.commons.pool2.PooledObject;
+import org.apache.commons.pool2.impl.DefaultPooledObject;
+import org.apache.commons.pool2.impl.GenericObjectPool;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
 import javax.servlet.annotation.*;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -20,10 +24,24 @@ public class SkierServlet extends HttpServlet {
     private final Gson gson  = new Gson();
     private static final String QUEUE_NAME = "postLiftRideQ";
 //    private static final String HOST_NAME = "localhost";
-    private static final String HOST_NAME = "54.69.74.33";
+    private static final String HOST_NAME = "172.31.28.212";
     private static final int PORT = 5672;
     private static Connection conn;
-//    private static Gson gson ;
+
+    private static ObjectPool<Channel> channelPool;
+
+    private static class ChannelFactory extends BasePooledObjectFactory<Channel> {
+        @Override
+        public Channel create() throws IOException {
+            return conn.createChannel();
+        }
+
+        @Override
+        public PooledObject<Channel> wrap(Channel channel) {
+            return new DefaultPooledObject<>(channel);
+        }
+
+    }
 
     @Override
     public void init() {
@@ -36,9 +54,11 @@ public class SkierServlet extends HttpServlet {
         factory.setPort(PORT);
         try {
             conn = factory.newConnection();
+            //TODO
         } catch (IOException | TimeoutException e) {
             e.printStackTrace();
         }
+        channelPool = new GenericObjectPool<>(new ChannelFactory());
     }
 
 
@@ -107,11 +127,8 @@ public class SkierServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("text/plain");
-//        BufferedReader reader = request.getReader();
-        String urlPath = request.getPathInfo();
 
-//        String requestBody = ReadBigStringIn(reader);
-//        String[] parameters = requestBody.substring(1, requestBody.length() - 1).trim().split(",");
+        String urlPath = request.getPathInfo();
 
         // check we have a URL!
         if (urlPath == null || urlPath.isEmpty()) {
@@ -122,36 +139,23 @@ public class SkierServlet extends HttpServlet {
 
         String[] urlParts = urlPath.split("/");
         if (!isPostUrlPathValid(urlParts)) {
-//            Message message = new Message("Invalid URL.");
             response.getWriter().write("Invalid URL.");
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-//        } else if (!isPostParametersPathValid(parameters)) {
-//            response.getWriter().write("Invalid parameters.");
-//            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         } else {
-//            response.setStatus(HttpServletResponse.SC_OK);
-//            // do any sophisticated processing with urlParts which contains all the url params
-//            // TODO: process url params in `urlParts`
-//            response.getWriter().write("Posting skier data works!");
-
-//            LiftRide lift = gson.fromJson(request.getReader(), LiftRide.class);
-//            System.out.println("+++++++++++++++++++++++++++");
-//            System.out.println(lift);
-//            response.getWriter().write((gson.toJson(lift)));
-//            response.setStatus(HttpServletResponse.SC_CREATED);
-
             try {
-                Channel channel = conn.createChannel();
-                channel.queueDeclare(QUEUE_NAME, false, false, false, null); //TODO: init
+//                Channel channel = conn.createChannel();
+                Channel channel = channelPool.borrowObject();
+                channel.queueDeclare(QUEUE_NAME, false, false, false, null); //TODO: init //TODO;delete
                 LiftRide lift = gson.fromJson(request.getReader(), LiftRide.class);
 
                 // message = "skierId,timestamp,liftId,waitTime"
                 String message = urlParts[7] + "," + lift.getTime() + "," + lift.getLiftID()+ "," + lift.getWaitTime();
                 channel.basicPublish("", QUEUE_NAME, null, message.getBytes(StandardCharsets.UTF_8));
-                channel.close();
-                response.getWriter().write((gson.toJson(lift)));
+//                channel.close();
+                channelPool.returnObject(channel);
+                response.getWriter().write(urlParts[7] + ": " + gson.toJson(lift));
                 response.setStatus(HttpServletResponse.SC_CREATED);
-            } catch (IOException | TimeoutException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
@@ -211,15 +215,6 @@ public class SkierServlet extends HttpServlet {
             return false;
         }
         return false;
-    }
-
-    public String ReadBigStringIn(BufferedReader buffIn) throws IOException {
-        StringBuilder everything = new StringBuilder();
-        String line;
-        while ((line = buffIn.readLine()) != null) {
-            everything.append(line);
-        }
-        return everything.toString();
     }
 
     @Override

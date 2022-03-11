@@ -15,9 +15,9 @@ public class Consumer {
 
     private static final String QUEUE_NAME = "postLiftRideQ";
 //    private static final String HOST_NAME = "localhost";
-    private static final String HOST_NAME = "54.69.74.33";
+    private static final String HOST_NAME = "172.31.28.212";
     private static final int PORT = 5672;
-    private static final int NUMTHREADS = 4;
+    private static final int NUMTHREADS = 256;
 
     private static class LiftRide {
         int time;
@@ -38,7 +38,7 @@ public class Consumer {
                     '}';
         }
     }
-    private static final Map<Integer, List<LiftRide>> map = new ConcurrentHashMap<>();
+    private static final Map<Integer, List<LiftRide>> skierIdToLiftRideMap = new ConcurrentHashMap<>();
 
     public static void main(String[] argv) throws Exception {
         ConnectionFactory factory = new ConnectionFactory();
@@ -49,6 +49,7 @@ public class Consumer {
         factory.setPort(PORT);
         final Connection connection = factory.newConnection();
         CountDownLatch completed = new CountDownLatch(NUMTHREADS);
+        System.out.println(NUMTHREADS + " consumers started.");
         for (int i = 0; i < NUMTHREADS; i++) {
             Runnable runnable = () -> {
                 try {
@@ -56,7 +57,7 @@ public class Consumer {
                     channel.queueDeclare(QUEUE_NAME, false, false, false, null);
                     // max one message per receiver
                     channel.basicQos(1);
-                    System.out.println(" [*] Thread waiting for messages. To exit press CTRL+C");
+//                    System.out.println(" [*] Thread waiting for messages. To exit press CTRL+C");
 
                     DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                         String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
@@ -65,9 +66,9 @@ public class Consumer {
                         int time = Integer.parseInt(tokens[1]);
                         int liftId = Integer.parseInt(tokens[2]);
                         int waitTime = Integer.parseInt(tokens[3]);
-                        map.putIfAbsent(skierId, new ArrayList<>());
-                        map.get(skierId).add(new LiftRide(time, liftId, waitTime));
-                        System.out.println(map);
+                        skierIdToLiftRideMap.putIfAbsent(skierId, new ArrayList<>());
+                        skierIdToLiftRideMap.get(skierId).add(new LiftRide(time, liftId, waitTime));
+//                        System.out.println(map);
                         channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
                     };
                     // process messages
@@ -81,7 +82,5 @@ public class Consumer {
             completed.countDown();
         }
         completed.await();
-        System.out.println(NUMTHREADS + " consumers started.");
-        System.out.println(map);
     }
 }
