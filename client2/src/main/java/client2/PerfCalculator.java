@@ -12,19 +12,20 @@ public class PerfCalculator {
     public static void calculate(Statistics stats) {
         try (BufferedReader reader = Files.newBufferedReader(stats.getRecordOutputFilePath())) {
             int totalLatency = 0;
-            List<Long> latencies = new ArrayList<>();
-
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String[] fields = line.split(",");
-                long startTime = Long.parseLong(fields[0]);
-                String method = fields[1];
-                long latency = Long.parseLong(fields[2]);
-                String statusCode = fields[3];
-
-                totalLatency += latency;
-                latencies.add(latency);
-            }
+            List<Long> latencies = stats.getLatencies();
+//            List<Long> latencies = new ArrayList<>();
+//
+//            String line;
+//            while ((line = reader.readLine()) != null) {
+//                String[] fields = line.split(",");
+//                long startTime = Long.parseLong(fields[0]);
+//                String method = fields[1];
+//                long latency = Long.parseLong(fields[2]);
+//                String statusCode = fields[3];
+//
+//                totalLatency += latency;
+//                latencies.add(latency);
+//            }
             Collections.sort(latencies);
             stats.setMeanResponseTime(totalLatency / (double) latencies.size());
             stats.setMaxResponseTime(latencies.get(latencies.size() - 1));

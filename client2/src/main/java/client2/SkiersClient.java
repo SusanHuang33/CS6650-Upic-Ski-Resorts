@@ -1,6 +1,8 @@
 package client2;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
@@ -122,8 +124,20 @@ public class SkiersClient {
     System.out.println("P99 response Time: " + stats.getP99ResponseTime());
     System.out.println("Max response Time: " + stats.getMaxResponseTime());
     System.out.println("Min response Time: " + stats.getMinResponseTime());
-    //TODO
     System.out.println("Throughput: " + stats.getThroughput());
+
+
+    for (String record: stats.getRecords()) {
+      try (BufferedWriter bufferedWriter = Files.newBufferedWriter(
+              stats.getRecordOutputFilePath(),
+              StandardCharsets.UTF_8,
+              StandardOpenOption.APPEND)) {
+        bufferedWriter.write(record);
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
+
   }
 }
 

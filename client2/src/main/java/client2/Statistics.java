@@ -1,6 +1,8 @@
 package client2;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Statistics {
@@ -19,13 +21,19 @@ public class Statistics {
     private long maxResponseTime;
     private long minResponseTime;
 
+    private List<String> records;
+    private List<Long> latencies;
+
     public Statistics(AtomicInteger numSuccessReq, AtomicInteger numFailReq, long testStartTime, long testEndTime, Path filePath) {
         this.numSuccessReq = numSuccessReq;
         this.numFailReq = numFailReq;
         this.testStartTime = testStartTime;
         this.testEndTime = testEndTime;
         this.recordOutputFilePath = filePath;
+        this.records = new ArrayList<>();
+        this.latencies = new ArrayList<>();
     }
+
 
     public AtomicInteger getNumSuccessReq() {
         return numSuccessReq;
@@ -41,6 +49,14 @@ public class Statistics {
 
     public long getTestEndTime() {
         return testEndTime;
+    }
+
+    public List<String> getRecords() {
+        return records;
+    }
+
+    public List<Long> getLatencies() {
+        return latencies;
     }
 
     public void setTestStartTime(long testStartTime) {
@@ -105,5 +121,13 @@ public class Statistics {
 
     public void setMinResponseTime(long minResponseTime) {
         this.minResponseTime = minResponseTime;
+    }
+
+    public void addRecord(String record) {
+        this.records.add(record);
+    }
+
+    public void recordLatency(Long latency) {
+        this.latencies.add(latency);
     }
 }

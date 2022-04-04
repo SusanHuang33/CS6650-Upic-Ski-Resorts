@@ -29,6 +29,9 @@ public class PostNewLiftRideThread implements Runnable {
     private String seasonId;
     private String dayId;
 
+    private int successRequests;
+    private int failedRequests;
+
     private static final int RETRIES = 5;   // max number of retries
     private static final SkiersApi apiInstance = new SkiersApi();
 
@@ -48,6 +51,8 @@ public class PostNewLiftRideThread implements Runnable {
         this.seasonId = seasonId;
         this.dayId = dayId;
         this.random = new SecureRandom();
+        this.successRequests = 0;
+        this.failedRequests = 0;
     }
 
     @Override
@@ -71,27 +76,34 @@ public class PostNewLiftRideThread implements Runnable {
                     }
                     long requestStartTime = System.currentTimeMillis();
                     ApiResponse<Void> response = apiInstance.writeNewLiftRideWithHttpInfo(body, resortId, seasonId, dayId, skierId);
-                    statistics.getNumSuccessReq().getAndIncrement();
+//                    statistics.getNumSuccessReq().getAndIncrement();
+                    this.successRequests += 1;
                     long requestEndTime = System.currentTimeMillis();
                     long latency = requestEndTime - requestStartTime;
-                    try (BufferedWriter bufferedWriter = Files.newBufferedWriter(
-                            statistics.getRecordOutputFilePath(),
-                            StandardCharsets.UTF_8,
-                            StandardOpenOption.APPEND)) {
-                        bufferedWriter.write(
-                                requestStartTime + ",POST," + latency + "," + response.getStatusCode() + "\n");
-                    }
+//                    try (BufferedWriter bufferedWriter = Files.newBufferedWriter(
+//                            statistics.getRecordOutputFilePath(),
+//                            StandardCharsets.UTF_8,
+//                            StandardOpenOption.APPEND)) {
+//                        bufferedWriter.write(
+//                                requestStartTime + ",POST," + latency + "," + response.getStatusCode() + "\n");
+//                    }
+                    statistics.recordLatency(latency);
+                    statistics.addRecord(requestStartTime + ",POST," + latency + "," + response.getStatusCode() + "\n");
                     break;
-                } catch (ApiException | IOException e) {
+                } catch (ApiException e) {
                     triedTimes += 1;
                     e.printStackTrace();
                 }
             }
 
             if (triedTimes == RETRIES + 1) {
-                statistics.getNumFailReq().getAndIncrement();
+//                statistics.getNumFailReq().getAndIncrement();
+                this.failedRequests += 1;
             }
         }
+
+        statistics.getNumSuccessReq().getAndAdd(this.successRequests);
+        statistics.getNumFailReq().getAndAdd(this.failedRequests);
 
         try {
             this.latch.countDown();
