@@ -28,8 +28,8 @@ public class SkierServlet extends HttpServlet {
     private static final String RESORT_QUEUE_NAME = "resortQ";
 //    private static final String QUEUE_NAME = "postLiftRideQ";
 //    private static final String HOST_NAME = "localhost";
-    private static final String HOST_NAME = "172.31.28.212"; //private
-//    private static final String HOST_NAME = "54.244.69.243"; //public
+//    private static final String HOST_NAME = "172.31.28.212"; //private
+    private static final String HOST_NAME = "35.86.246.38"; //public
     private static final int PORT = 5672;
     private static Connection conn;
 
