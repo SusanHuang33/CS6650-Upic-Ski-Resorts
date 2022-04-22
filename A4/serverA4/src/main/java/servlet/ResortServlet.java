@@ -4,18 +4,17 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import model.Resort;
-import model.Resorts;
-import model.SeasonVertical;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.params.ScanParams;
 import redis.clients.jedis.resps.ScanResult;
 
-import javax.servlet.*;
-import javax.servlet.http.*;
-import javax.servlet.annotation.*;
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -25,7 +24,7 @@ public class ResortServlet extends HttpServlet {
     private static final int DAY_MAX = 366;
     private static final String DATA_SEPARATOR = ",";
 
-    private final Gson gson  = new Gson();
+    private final Gson gson = new Gson();
 
     //TODO: check host name
     private static final String JEDIS_HOST_NAME = "localhost";
@@ -41,7 +40,7 @@ public class ResortServlet extends HttpServlet {
 //            resorts.add(new Resort("string", 0));
 //            ResortResp resortResp = new ResortResp(resorts);
 //            res.getWriter().write(gson.toJson(resortResp));
-            Resort resort = new Resort("string",0);
+            Resort resort = new Resort("string", 0);
             List<Resort> resorts = Arrays.asList(resort);
             JsonArray jsonArray = this.gson.toJsonTree(resorts).getAsJsonArray();
             JsonObject jsonObject = new JsonObject();
@@ -65,7 +64,7 @@ public class ResortServlet extends HttpServlet {
             JedisPool pool = new JedisPool(JEDIS_HOST_NAME, 6379);
             // do any sophisticated processing with urlParts which contains all the url params
             // GET: /resorts/{resortID}/seasons
-            if (urlParts.length == 3){
+            if (urlParts.length == 3) {
                 List<String> dummy = Arrays.asList("string");
                 JsonArray jsonArray = this.gson.toJsonTree(dummy).getAsJsonArray();
                 JsonObject jsonObject = new JsonObject();
@@ -83,7 +82,6 @@ public class ResortServlet extends HttpServlet {
                 numOfSkiersRes.addProperty("time", "Mission Ridge"); //todo
                 numOfSkiersRes.addProperty("numSkiers", numOfSkiers);
                 res.getWriter().write(String.valueOf(numOfSkiersRes));
-
 
 
             }
@@ -116,7 +114,7 @@ public class ResortServlet extends HttpServlet {
     }
 
     private boolean isUrlValid(String[] urlPath) {
-        if(urlPath.length == 7) {
+        if (urlPath.length == 7) {
             return isNumeric(urlPath[1]) &&
                     urlPath[2].equals("seasons") &&
                     isNumeric(urlPath[3]) &&
@@ -126,21 +124,22 @@ public class ResortServlet extends HttpServlet {
                     Integer.parseInt(urlPath[5]) >= DAY_MIN &&
                     Integer.parseInt(urlPath[5]) <= DAY_MAX &&
                     urlPath[6].equals("skiers");
-        } else if(urlPath.length == 3){
+        } else if (urlPath.length == 3) {
             return isNumeric(urlPath[1]) &&
                     urlPath[2].equals("seasons");
-        } else if(urlPath.length == 1){
+        } else if (urlPath.length == 1) {
             return true;
         }
         return false;
     }
 
     private boolean isNumeric(String s) {
-        if(s == null || s.equals("")) return false;
+        if (s == null || s.equals("")) return false;
         try {
             Integer.parseInt(s);
             return true;
-        } catch (NumberFormatException ignored) { }
+        } catch (NumberFormatException ignored) {
+        }
         return false;
     }
 

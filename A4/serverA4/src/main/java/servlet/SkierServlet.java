@@ -3,12 +3,10 @@ package servlet;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.google.gson.reflect.TypeToken;
 import com.rabbitmq.client.BuiltinExchangeType;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
-//import json.Message;
 import model.LiftRide;
 import model.SeasonVertical;
 import org.apache.commons.pool2.BasePooledObjectFactory;
@@ -16,20 +14,23 @@ import org.apache.commons.pool2.ObjectPool;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.commons.pool2.impl.GenericObjectPool;
-
-import javax.servlet.*;
-import javax.servlet.http.*;
-import javax.servlet.annotation.*;
-import java.io.IOException;
-import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.TimeoutException;
-
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.params.ScanParams;
 import redis.clients.jedis.resps.ScanResult;
+
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeoutException;
 
 @WebServlet(name = "servlet.SkierServlet", value = "/servlet.SkierServlet")
 public class SkierServlet extends HttpServlet {
@@ -37,14 +38,14 @@ public class SkierServlet extends HttpServlet {
     private static final int DAY_MAX = 366;
     private static final String DATA_SEPARATOR = ",";
 
-    private final Gson gson  = new Gson();
+    private final Gson gson = new Gson();
     private static final String EXCHANGE_NAME = "postLiftRide";
     private static final String SKIER_QUEUE_NAME = "skierQ";
     private static final String RESORT_QUEUE_NAME = "resortQ";
     //    private static final String QUEUE_NAME = "postLiftRideQ";
     //TODO: check host name
     private static final String HOST_NAME = "localhost";
-//    private static final String HOST_NAME = "172.31.28.212"; //private
+    //    private static final String HOST_NAME = "172.31.28.212"; //private
 //    private static final String HOST_NAME = "35.86.246.38"; //public
     private static final int PORT = 5672;
 
@@ -115,7 +116,7 @@ public class SkierServlet extends HttpServlet {
 
             // do any sophisticated processing with urlParts which contains all the url params
             //  GET: /skiers/{skierID}/vertical
-            if (urlParts[2].equals("vertical")){
+            if (urlParts[2].equals("vertical")) {
                 String specifiedResort = req.getParameter("resort");
                 System.out.println("specifiedResorts:" + specifiedResort);
                 String specifiedSeason = req.getParameter("season");
@@ -124,7 +125,7 @@ public class SkierServlet extends HttpServlet {
                     message.addProperty("message", "Parameter resort required!");
                     res.getWriter().write(String.valueOf(message));
                 } else {
-                    String skierID =  urlParts[1];
+                    String skierID = urlParts[1];
                     List<SeasonVertical> seasonVerticals = getVerticalTotals(pool, specifiedResort, skierID, specifiedSeason);
                     JsonArray jsonArray = this.gson.toJsonTree(seasonVerticals).getAsJsonArray();
                     JsonObject jsonObject = new JsonObject();
@@ -132,19 +133,18 @@ public class SkierServlet extends HttpServlet {
                     res.getWriter().write(jsonObject.toString());
                 }
 
-            // GET: /skiers/{resortID}/seasons/{seasonID}/days/{dayID}/skiers/{skierID}
+                // GET: /skiers/{resortID}/seasons/{seasonID}/days/{dayID}/skiers/{skierID}
             } else {
                 String resortID = urlParts[1];
                 String seasonID = urlParts[3];
                 String dayID = urlParts[5];
-                String skierID =  urlParts[7];
+                String skierID = urlParts[7];
                 Integer dayVertical = getVerticalTotalsForDay(pool, resortID, skierID, seasonID, dayID);
-                System.out.println("dayVertical:" + dayVertical);
+//                System.out.println("dayVertical:" + dayVertical);
                 res.getWriter().write(String.valueOf(dayVertical));
             }
         }
     }
-
 
 
     /**
@@ -156,7 +156,7 @@ public class SkierServlet extends HttpServlet {
             List<SeasonVertical> res = new ArrayList<>();
             String keyPattern;
             if (seasonID == null) {
-                System.out.println("seasonId is null!");
+//                System.out.println("seasonId is null!");
                 keyPattern = "skierID:" + skierID + DATA_SEPARATOR
                         + "season:*";
             } else {
@@ -164,58 +164,36 @@ public class SkierServlet extends HttpServlet {
                         + "season:" + seasonID + "*";
             }
 
-                ScanParams params = new ScanParams();
-                params.match(keyPattern);
+            ScanParams params = new ScanParams();
+            params.match(keyPattern);
 
-                // Use "0" to do a full iteration of the collection.
-                ScanResult<String> scanResult = jedis.scan("0", params);
-                List<String> keys = scanResult.getResult();
+            // Use "0" to do a full iteration of the collection.
+            ScanResult<String> scanResult = jedis.scan("0", params);
+            List<String> keys = scanResult.getResult();
 
-                Map<String, Integer> seasonToVetical = new HashMap<>();
-                for (String key: keys) {
-                    long ind = 0;
-                    long len = jedis.llen(key);
-                    while (ind < len) {
-                        String value = jedis.lindex(key, ind);
-                        String[] liftRide = value.substring(8, value.length() - 1).split(DATA_SEPARATOR);
-                        String curResortID = liftRide[1].split("=")[1];
-                        if (curResortID.equals(resortID)) {
-                            String liftID = liftRide[4].split("=")[1];
-                            String curSeasonID = liftRide[2].split("=")[1];
-                            Integer verticalThisSeason = seasonToVetical.getOrDefault(curSeasonID, 0)
-                                    + Integer.parseInt(liftID) * 10;
-                            seasonToVetical.put(curSeasonID, verticalThisSeason);
-                        }
-                        ind += 1;
+            Map<String, Integer> seasonToVetical = new HashMap<>();
+            for (String key : keys) {
+                long ind = 0;
+                long len = jedis.llen(key);
+                while (ind < len) {
+                    String value = jedis.lindex(key, ind);
+                    String[] liftRide = value.substring(8, value.length() - 1).split(DATA_SEPARATOR);
+                    String curResortID = liftRide[1].split("=")[1];
+                    if (curResortID.equals(resortID)) {
+                        String liftID = liftRide[4].split("=")[1];
+                        String curSeasonID = liftRide[2].split("=")[1];
+                        Integer verticalThisSeason = seasonToVetical.getOrDefault(curSeasonID, 0)
+                                + Integer.parseInt(liftID) * 10;
+                        seasonToVetical.put(curSeasonID, verticalThisSeason);
                     }
+                    ind += 1;
                 }
-                for (String season: seasonToVetical.keySet()) {
-                    SeasonVertical seasonVertical = new SeasonVertical(season, seasonToVetical.get(season));
-                    res.add(seasonVertical);
-                }
-//            } else {
-//                System.out.println("seasonId is not null!");
-//                String key = "skierID:" + skierID + DATA_SEPARATOR
-//                        + "season:" + seasonID + "*";
-//                System.out.println("key:" + key);
-//                long ind = 0;
-//                long len = jedis.llen(key);
-//                System.out.println("values len:" + len);
-//                int seasonVerticalTotal = 0;
-//                while (ind < len) {
-//                    String value = jedis.lindex(key, ind);
-//                    String[] liftRide = value.substring(8, value.length()-1).split(DATA_SEPARATOR);
-//                    String curResortID = liftRide[1].split("=")[1];
-//                    if (curResortID.equals(resortID)) {
-//                        String liftID = liftRide[4].split("=")[1];
-//                        seasonVerticalTotal += Integer.parseInt(liftID) * 10;
-//                    }
-//                    ind += 1;
-//                }
-//                SeasonVertical seasonVertical = new SeasonVertical(seasonID, seasonVerticalTotal);
-//                res.add(seasonVertical);
-//            }
-            System.out.println("getVerticalTotals res:" + res);
+            }
+            for (String season : seasonToVetical.keySet()) {
+                SeasonVertical seasonVertical = new SeasonVertical(season, seasonToVetical.get(season));
+                res.add(seasonVertical);
+            }
+//            System.out.println("getVerticalTotals res:" + res);
             return res;
         } catch (Exception e) {
             e.printStackTrace();
@@ -238,7 +216,7 @@ public class SkierServlet extends HttpServlet {
             int verticalTotal = 0;
             while (ind < len) {
                 String value = jedis.lindex(key, ind);
-                String[] liftRide = value.substring(8, value.length()-1).split(DATA_SEPARATOR);
+                String[] liftRide = value.substring(8, value.length() - 1).split(DATA_SEPARATOR);
                 String curResortID = liftRide[1].split("=")[1];
                 if (curResortID.equals(resortID)) {
                     String liftID = liftRide[4].split("=")[1];
@@ -254,7 +232,7 @@ public class SkierServlet extends HttpServlet {
     }
 
     private boolean isUrlValid(String[] urlPath) {
-        if(urlPath.length == 8) {
+        if (urlPath.length == 8) {
             return isNumeric(urlPath[1]) &&
                     urlPath[2].equals("seasons") &&
                     isNumeric(urlPath[3]) &&
@@ -265,7 +243,7 @@ public class SkierServlet extends HttpServlet {
                     Integer.parseInt(urlPath[5]) <= DAY_MAX &&
                     urlPath[6].equals("skiers") &&
                     isNumeric(urlPath[7]);
-        } else if(urlPath.length == 3){
+        } else if (urlPath.length == 3) {
             return isNumeric(urlPath[1]) &&
                     urlPath[2].equals("vertical");
         }
@@ -273,14 +251,14 @@ public class SkierServlet extends HttpServlet {
     }
 
     private boolean isNumeric(String s) {
-        if(s == null || s.equals("")) return false;
+        if (s == null || s.equals("")) return false;
         try {
             Integer.parseInt(s);
             return true;
-        } catch (NumberFormatException ignored) { }
+        } catch (NumberFormatException ignored) {
+        }
         return false;
     }
-
 
 
     @Override
@@ -308,13 +286,13 @@ public class SkierServlet extends HttpServlet {
                 channel.exchangeDeclare(EXCHANGE_NAME, BuiltinExchangeType.DIRECT, true);
                 channel.queueDeclare(SKIER_QUEUE_NAME, false, false, false, null);
                 channel.queueDeclare(RESORT_QUEUE_NAME, false, false, false, null);
-                channel.queueBind(SKIER_QUEUE_NAME , EXCHANGE_NAME, "skier");
+                channel.queueBind(SKIER_QUEUE_NAME, EXCHANGE_NAME, "skier");
                 channel.queueBind(RESORT_QUEUE_NAME, EXCHANGE_NAME, "resort");
 
 
                 LiftRide lift = gson.fromJson(request.getReader(), LiftRide.class);
                 // message = "skierId,resortID,seasonID,dayID,timestamp,liftId,waitTime"
-                String message = urlParts[7] + "," + urlParts[1] + "," + urlParts[3] + "," + urlParts[5] + "," +lift.getTime() + "," + lift.getLiftID()+ "," + lift.getWaitTime();
+                String message = urlParts[7] + "," + urlParts[1] + "," + urlParts[3] + "," + urlParts[5] + "," + lift.getTime() + "," + lift.getLiftID() + "," + lift.getWaitTime();
 //                channel.basicPublish("", QUEUE_NAME, null, message.getBytes(StandardCharsets.UTF_8));
 //                channel.basicPublish(EXCHANGE_NAME, "", null, message.getBytes(StandardCharsets.UTF_8));
                 channel.basicPublish(EXCHANGE_NAME, "skier", null, message.getBytes(StandardCharsets.UTF_8));
@@ -353,41 +331,11 @@ public class SkierServlet extends HttpServlet {
         return false;
     }
 
-
-    private boolean isPostParametersPathValid(String[] parameters) {
-        // TODO: validate the request url path according to the API spec
-        // urlPath  = "/1/seasons/2019/day/1/skier/123"
-        // urlParts = [, 1, seasons, 2019, day, 1, skier, 123]
-        // write a new lift ride for the skier: /skiers/{resortID}/seasons/{seasonID}/days/{dayID}/skiers/{skierID}:
-        for (String e : parameters) {
-            System.out.println(e);
-        }
-        if (parameters.length == 3) {
-            HashMap<String, Integer> paras = new HashMap<>();
-            for (int i = 0; i < 3; i++) {
-                String[] pairs = parameters[i].split(":");
-                try {
-                    String key = pairs[0].strip();
-                    paras.put(key.substring(1, key.length() - 1), Integer.parseInt(pairs[1].strip()));
-                } catch (NumberFormatException nfe) {
-                    return false;
-                }
-            }
-            for (String key : paras.keySet()) {
-                System.out.println(key);
-            }
-
-            if (paras.containsKey("time") && paras.containsKey("liftID") && paras.containsKey("waitTime")) {
-                return true;
-            }
-            return false;
-        }
-        return false;
-    }
-
     @Override
     public void destroy() {
-        if (conn == null) { return;}
+        if (conn == null) {
+            return;
+        }
         try {
             conn.close();
         } catch (IOException e) {

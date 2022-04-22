@@ -12,13 +12,4 @@ public class Resort {
 
     }
 
-//    public Resort(String resortName, Integer resortID, List<String> seasons) {
-//        this.resortName = resortName;
-//        this.resortID = resortID;
-//        this.seasons = seasons;
-//    }
-//
-//    public List<String> getSeasons() {
-//        return seasons;
-//    }
 }
