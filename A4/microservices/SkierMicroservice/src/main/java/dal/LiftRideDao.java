@@ -21,12 +21,31 @@ public class LiftRideDao {
     public LiftRideDao() {
     }
 
+//    public void createLiftRide(LiftRide newLiftRide) {
+//        try (Jedis jedis = pool.getResource()) {
+//            String key = "skierID:" + newLiftRide.getSkierId() + DATA_SEPARATOR
+//                    + "season:" + newLiftRide.getSeasonsId() + DATA_SEPARATOR
+//                    + "day:" + newLiftRide.getDayId();
+//            jedis.rpush(key, newLiftRide.toString());
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//
+//    }
+
     public void createLiftRide(LiftRide newLiftRide) {
         try (Jedis jedis = pool.getResource()) {
-            String key = "skierID:" + newLiftRide.getSkierId() + DATA_SEPARATOR
+            String dayField = "resortID:" + newLiftRide.getResortId() + DATA_SEPARATOR
+                    + "skierID:" + newLiftRide.getSkierId() + DATA_SEPARATOR
                     + "season:" + newLiftRide.getSeasonsId() + DATA_SEPARATOR
                     + "day:" + newLiftRide.getDayId();
-            jedis.rpush(key, newLiftRide.toString());
+            int vertical = newLiftRide.getLiftId() * 10;
+            jedis.hincrBy("DAY_VERTICAL", dayField, vertical);
+
+            String totalKey = "resortID:" + newLiftRide.getResortId() + DATA_SEPARATOR
+                    + "skierID:" + newLiftRide.getSkierId() + DATA_SEPARATOR;
+            String totalField = String.valueOf(newLiftRide.getSeasonsId());
+            jedis.hincrBy(totalKey, totalField, vertical);
         } catch (Exception e) {
             e.printStackTrace();
         }

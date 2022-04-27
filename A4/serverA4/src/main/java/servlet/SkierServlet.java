@@ -26,10 +26,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeoutException;
 
 @WebServlet(name = "servlet.SkierServlet", value = "/servlet.SkierServlet")
@@ -74,7 +71,7 @@ public class SkierServlet extends HttpServlet {
     @Override
     public void init() {
         ConnectionFactory factory = new ConnectionFactory();
-        factory.setHost(JEDIS_HOST_NAME);
+        factory.setHost(HOST_NAME);
         //TODO: check username and password
 //        factory.setUsername("admin");
 //        factory.setPassword("password");
@@ -127,10 +124,14 @@ public class SkierServlet extends HttpServlet {
                 } else {
                     String skierID = urlParts[1];
                     List<SeasonVertical> seasonVerticals = getVerticalTotals(pool, specifiedResort, skierID, specifiedSeason);
-                    JsonArray jsonArray = this.gson.toJsonTree(seasonVerticals).getAsJsonArray();
-                    JsonObject jsonObject = new JsonObject();
-                    jsonObject.add("resorts", jsonArray);
-                    res.getWriter().write(jsonObject.toString());
+                    if (seasonVerticals != null) {
+                        JsonArray jsonArray = this.gson.toJsonTree(seasonVerticals).getAsJsonArray();
+                        JsonObject jsonObject = new JsonObject();
+                        jsonObject.add("resorts", jsonArray);
+                        res.getWriter().write(jsonObject.toString());
+                    } else {
+                        res.getWriter().write("null");
+                    }
                 }
 
                 // GET: /skiers/{resortID}/seasons/{seasonID}/days/{dayID}/skiers/{skierID}
@@ -154,46 +155,30 @@ public class SkierServlet extends HttpServlet {
     private List<SeasonVertical> getVerticalTotals(JedisPool pool, String resortID, String skierID, String seasonID) {
         try (Jedis jedis = pool.getResource()) {
             List<SeasonVertical> res = new ArrayList<>();
-            String keyPattern;
-            if (seasonID == null) {
-//                System.out.println("seasonId is null!");
-                keyPattern = "skierID:" + skierID + DATA_SEPARATOR
-                        + "season:*";
-            } else {
-                keyPattern = "skierID:" + skierID + DATA_SEPARATOR
-                        + "season:" + seasonID + "*";
-            }
-
-            ScanParams params = new ScanParams();
-            params.match(keyPattern);
-
-            // Use "0" to do a full iteration of the collection.
-            ScanResult<String> scanResult = jedis.scan("0", params);
-            List<String> keys = scanResult.getResult();
-
             Map<String, Integer> seasonToVetical = new HashMap<>();
-            for (String key : keys) {
-                long ind = 0;
-                long len = jedis.llen(key);
-                while (ind < len) {
-                    String value = jedis.lindex(key, ind);
-                    String[] liftRide = value.substring(8, value.length() - 1).split(DATA_SEPARATOR);
-                    String curResortID = liftRide[1].split("=")[1];
-                    if (curResortID.equals(resortID)) {
-                        String liftID = liftRide[4].split("=")[1];
-                        String curSeasonID = liftRide[2].split("=")[1];
-                        Integer verticalThisSeason = seasonToVetical.getOrDefault(curSeasonID, 0)
-                                + Integer.parseInt(liftID) * 10;
-                        seasonToVetical.put(curSeasonID, verticalThisSeason);
-                    }
-                    ind += 1;
+            String totalKey = "resortID:" + resortID + DATA_SEPARATOR
+                    + "skierID:" + skierID + DATA_SEPARATOR;
+            if (seasonID != null) {
+                String field = "season:" + seasonID;
+                String stringVertical = jedis.hget(totalKey, field);
+                Integer vertical;
+                if (stringVertical != null) {
+                    vertical = Integer.parseInt(jedis.hget(totalKey, field));
+                } else {
+                    vertical = 0;
                 }
-            }
-            for (String season : seasonToVetical.keySet()) {
-                SeasonVertical seasonVertical = new SeasonVertical(season, seasonToVetical.get(season));
+                SeasonVertical seasonVertical = new SeasonVertical(seasonID, vertical);
                 res.add(seasonVertical);
-            }
-//            System.out.println("getVerticalTotals res:" + res);
+            } else {
+                Set<String> seasons = jedis.hkeys(totalKey);
+                for (String season: seasons) {
+//                    String field = "season:" + season;
+                    Integer vertical = Integer.parseInt(jedis.hget(totalKey, season));
+                    SeasonVertical seasonVertical = new SeasonVertical(season, vertical);
+                    res.add(seasonVertical);
+                }
+             }
+            System.out.println("getVerticalTotals:"+ res);
             return res;
         } catch (Exception e) {
             e.printStackTrace();
@@ -201,30 +186,17 @@ public class SkierServlet extends HttpServlet {
         return null;
     }
 
-
     /**
      * Get ski day vertical for a skier.
      * GET: /skiers/{resortID}/seasons/{seasonID}/days/{dayID}/skiers/{skierID}
      */
     private Integer getVerticalTotalsForDay(JedisPool pool, String resortID, String skierID, String seasonID, String dayID) {
         try (Jedis jedis = pool.getResource()) {
-            String key = "skierID:" + skierID + DATA_SEPARATOR
+            String dayField ="resortID:" + resortID + DATA_SEPARATOR
+                    + "skierID:" + skierID + DATA_SEPARATOR
                     + "season:" + seasonID + DATA_SEPARATOR
                     + "day:" + dayID;
-            long ind = 0;
-            long len = jedis.llen(key);
-            int verticalTotal = 0;
-            while (ind < len) {
-                String value = jedis.lindex(key, ind);
-                String[] liftRide = value.substring(8, value.length() - 1).split(DATA_SEPARATOR);
-                String curResortID = liftRide[1].split("=")[1];
-                if (curResortID.equals(resortID)) {
-                    String liftID = liftRide[4].split("=")[1];
-                    verticalTotal += Integer.parseInt(liftID) * 10;
-                }
-                ind += 1;
-            }
-            return verticalTotal;
+            return Integer.parseInt(jedis.hget("DAY_VERTICAL", dayField));
         } catch (Exception e) {
             e.printStackTrace();
         }

@@ -13,17 +13,31 @@ public class LiftRideDao {
     private static final int PORT = 6379;
     private static final JedisPool pool = new JedisPool(HOST_NAME, PORT);
     private static final String DATA_SEPARATOR = ",";
+//    private static final String resortKey = "NUM_SKIERS";
 
     public LiftRideDao() {
     }
 
+//    public void createLiftRide(LiftRide newLiftRide) {
+//        try (Jedis jedis = pool.getResource()) {
+//            String keyForQuery1 = "resortID:" + newLiftRide.getResortId() + DATA_SEPARATOR
+//                    + "season:" + newLiftRide.getSeasonsId() + DATA_SEPARATOR
+//                    + "day:" + newLiftRide.getDayId() + DATA_SEPARATOR
+//                    + "skierID:" + newLiftRide.getSkierId();
+//            jedis.rpush(keyForQuery1, newLiftRide.toString());
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//
+//    }
+
     public void createLiftRide(LiftRide newLiftRide) {
         try (Jedis jedis = pool.getResource()) {
-            String keyForQuery1 = "resortID:" + newLiftRide.getResortId() + DATA_SEPARATOR
+
+            String key = "resortID:" + newLiftRide.getResortId() + DATA_SEPARATOR
                     + "season:" + newLiftRide.getSeasonsId() + DATA_SEPARATOR
-                    + "day:" + newLiftRide.getDayId() + DATA_SEPARATOR
-                    + "skierID:" + newLiftRide.getSkierId();
-            jedis.rpush(keyForQuery1, newLiftRide.toString());
+                    + "day:" + newLiftRide.getDayId();
+            jedis.sadd(key, String.valueOf(newLiftRide.getSkierId()));
         } catch (Exception e) {
             e.printStackTrace();
         }

@@ -75,15 +75,12 @@ public class ResortServlet extends HttpServlet {
                 String resortID = urlParts[1];
                 String seasonID = urlParts[3];
                 String dayID = urlParts[5];
-                Integer numOfSkiers = getNumOfSkiersForDay(pool, resortID, seasonID, dayID);
-
+                Long numOfSkiers = getNumOfSkiersForDay(pool, resortID, seasonID, dayID);
 
                 JsonObject numOfSkiersRes = new JsonObject();
-                numOfSkiersRes.addProperty("time", "Mission Ridge"); //todo
+                numOfSkiersRes.addProperty("name", "Mission Ridge"); //dummy resort name
                 numOfSkiersRes.addProperty("numSkiers", numOfSkiers);
                 res.getWriter().write(String.valueOf(numOfSkiersRes));
-
-
             }
         }
     }
@@ -92,21 +89,12 @@ public class ResortServlet extends HttpServlet {
      * Get number of unique skiers at resort/season/day.
      * GET: /resorts/{resortID}/seasons/{seasonID}/day/{dayID}/skier
      */
-    private Integer getNumOfSkiersForDay(JedisPool pool, String resortID, String seasonID, String dayID) {
+    private Long getNumOfSkiersForDay(JedisPool pool, String resortID, String seasonID, String dayID) {
         try (Jedis jedis = pool.getResource()) {
-            String keyPattern = "resortID:" + resortID + DATA_SEPARATOR
+            String key = "resortID:" + resortID + DATA_SEPARATOR
                     + "season:" + seasonID + DATA_SEPARATOR
-                    + "day:" + dayID + "*";
-            ScanParams params = new ScanParams();
-            params.match(keyPattern);
-            // Use "0" to do a full iteration of the collection.
-            ScanResult<String> scanResult = jedis.scan("0", params);
-            List<String> keys = scanResult.getResult();
-            for (String key : keys) {
-                System.out.println("getNumOfSkiersForDay key:" + key + "\n");
-            }
-            System.out.println(keys.size());
-            return keys.size();
+                    + "day:" + dayID;
+            return jedis.scard(key);
         } catch (Exception e) {
             e.printStackTrace();
         }

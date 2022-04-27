@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SkiersClient {
 
   private InputParams inputParams;
+  private String DAY_ID = "3";
 
   public SkiersClient(InputParams inputParams) {
     this.inputParams = inputParams;
@@ -30,7 +31,7 @@ public class SkiersClient {
     // Dummy data for assignment 1
     int resortId = 56;
     String seasonId = "2022";
-    String dayId = "1";
+    String dayId = DAY_ID;
 
 
     // Phase 1: startup
